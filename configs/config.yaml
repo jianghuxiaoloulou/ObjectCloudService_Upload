@@ -1,0 +1,42 @@
+﻿Server:
+  RunMode: debug
+  # RunMode: release
+  HttpPort: 9000
+  ReadTimeout: 60
+  WriteTimeout: 60
+General:
+  LogSavePath: storage/logs
+  LogFileName: log
+  LogFileExt: .log
+  LogMaxSize: 60
+  LogMaxAge: 7
+  MaxThreads: 100
+  MaxTasks: 100
+  # 定时任务规则：秒/分/时/日/月/星期（cron）
+  # 每天0-23时每隔10秒执行一次任务
+  CronSpec: "*/10 * 0-23 * * ?"
+Database:
+  # 树兰安吉医院：espacs:Espacs@2020@tcp(172.16.0.7:3306)/espacs?charset=utf8
+  # 杭州树兰医院：espacs:espacs@2017@tcp(10.20.32.212:31967)/espacs?charset=utf8
+  DBConn: espacs:Espacs@2020@tcp(172.16.0.7:3306)/espacs?charset=utf8
+  # DBConn: hrp:asdf@123@tcp(10.110.20.133:30664)/espacs?charset=utf8  
+  DBType: mysql
+  MaxIdleConns: 100
+  MaxOpenConns: 100
+Object:
+  # 医院 storageId + resName 可以唯一确定 resId
+  OBJECT_ResId: c09fd3b6bdbf420b848e5a9eeca38650
+    # 树兰安吉医院AK
+  OBJECT_AK: 61237219e4b067be893d71e4
+  # 上传：AWS: https://cloud-gateway.rubikstack.com/cloud-file/v1/object
+  # 上传：树兰安吉电信云： https://gateway-aj.shulan.com/cloud-file/v1/object
+  OBJECT_POST_Upload: http://172.16.0.16:31460/v1/object
+  # 上传根路径，用来区分每家医院的前缀 hospital_id
+  # 安吉医院id:b30717222f104ed6b9525312e79d94a8
+  UPLOAD_ROOT: b30717222f104ed6b9525312e79d94a8
+  # 数据上传成功更新code
+  OBJECT_Upload_Success_Code: 1
+  # 设置操作失败补偿次数
+  OBJECT_Count: 3
+  # 存储类型：（0：公有云，1：私有云）
+  OBJECT_Store_Type: 0
