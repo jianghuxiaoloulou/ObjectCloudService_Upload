@@ -1,13 +1,31 @@
 package general
 
 import (
+	"WowjoyProject/ObjectCloudService_Upload/global"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // 基础函数
-func GetFilePath(file, ip, virpath string) (path string) {
+// func GetFilePath(file, ip, virpath string) (path string) {
+// 	path += "\\\\"
+// 	path += ip
+// 	path += "\\"
+// 	path += virpath
+// 	path += "\\"
+// 	path += file
+// 	return
+// }
+
+func GetFilePath(file, ip, virpath string) (key, path string) {
+
+	key += global.ObjectSetting.UPLOAD_ROOT
+	key += "\\"
+	key += file
+	key = strings.Replace(key, "\\", "/", -1)
+
 	path += "\\\\"
 	path += ip
 	path += "\\"

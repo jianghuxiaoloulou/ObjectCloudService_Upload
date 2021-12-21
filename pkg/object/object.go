@@ -41,7 +41,7 @@ func (obj *Object) UploadObject() {
 	if code == "00000" {
 		//上传成功更新数据库
 		global.Logger.Info("数据上传成功", obj.Key)
-		model.UpdateUplaod(obj.Key, obj.Type, true)
+		model.UpdateUplaod(obj.Key, obj.Type, obj.FileKey, true)
 	} else {
 		global.Logger.Info("数据上传失败", obj.Key)
 		// 上传失败时先补偿操作，补偿操作失败后才更新数据库
@@ -49,7 +49,7 @@ func (obj *Object) UploadObject() {
 			global.Logger.Info("数据补偿失败", obj.Key)
 			global.Logger.Info(obj.Key, " :文件删除失败，更新标志")
 			// 上传失败更新数据库
-			model.UpdateUplaod(obj.Key, obj.Type, false)
+			model.UpdateUplaod(obj.Key, obj.Type, obj.FileKey, false)
 		}
 	}
 }

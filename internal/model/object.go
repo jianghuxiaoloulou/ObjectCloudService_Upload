@@ -26,11 +26,11 @@ func GetUploadPublicData() {
 		key := KeyData{}
 		_ = rows.Scan(&key.instance_key, &key.dcmfile, &key.jpgfile, &key.ip, &key.virpath)
 		if key.jpgfile.String != "" {
-			file_path := general.GetFilePath(key.jpgfile.String, key.ip.String, key.virpath.String)
+			fike_key, file_path := general.GetFilePath(key.jpgfile.String, key.ip.String, key.virpath.String)
 			global.Logger.Info("需要处理的文件名：", file_path)
 			data := global.ObjectData{
 				InstanceKey: key.instance_key.Int64,
-				FileKey:     key.jpgfile.String,
+				FileKey:     fike_key,
 				FilePath:    file_path,
 				Type:        global.JPG,
 				Count:       1,
@@ -38,11 +38,11 @@ func GetUploadPublicData() {
 			global.ObjectDataChan <- data
 		}
 		if key.dcmfile.String != "" {
-			file_path := general.GetFilePath(key.dcmfile.String, key.ip.String, key.virpath.String)
+			fike_key, file_path := general.GetFilePath(key.dcmfile.String, key.ip.String, key.virpath.String)
 			global.Logger.Info("需要处理的文件名：", file_path)
 			data := global.ObjectData{
 				InstanceKey: key.instance_key.Int64,
-				FileKey:     key.dcmfile.String,
+				FileKey:     fike_key,
 				FilePath:    file_path,
 				Type:        global.DCM,
 				Count:       1,
@@ -75,11 +75,11 @@ func GetUploadPrivateData() {
 		key := KeyData{}
 		_ = rows.Scan(&key.instance_key, &key.dcmfile, &key.jpgfile, &key.ip, &key.virpath)
 		if key.jpgfile.String != "" {
-			file_path := general.GetFilePath(key.jpgfile.String, key.ip.String, key.virpath.String)
+			fike_key, file_path := general.GetFilePath(key.jpgfile.String, key.ip.String, key.virpath.String)
 			global.Logger.Info("需要处理的文件名：", file_path)
 			data := global.ObjectData{
 				InstanceKey: key.instance_key.Int64,
-				FileKey:     key.jpgfile.String,
+				FileKey:     fike_key,
 				FilePath:    file_path,
 				Type:        global.JPG,
 				Count:       1,
@@ -87,11 +87,11 @@ func GetUploadPrivateData() {
 			global.ObjectDataChan <- data
 		}
 		if key.dcmfile.String != "" {
-			file_path := general.GetFilePath(key.dcmfile.String, key.ip.String, key.virpath.String)
+			fike_key, file_path := general.GetFilePath(key.dcmfile.String, key.ip.String, key.virpath.String)
 			global.Logger.Info("需要处理的文件名：", file_path)
 			data := global.ObjectData{
 				InstanceKey: key.instance_key.Int64,
-				FileKey:     key.dcmfile.String,
+				FileKey:     fike_key,
 				FilePath:    file_path,
 				Type:        global.DCM,
 				Count:       1,
@@ -112,7 +112,7 @@ func UpdateLocalStatus(key int64) {
 }
 
 // 上传数据后更新数据库
-func UpdateUplaod(key int64, filetype global.FileType, status bool) {
+func UpdateUplaod(key int64, filetype global.FileType, remotekey string, status bool) {
 	// 获取更新时时间
 	local, _ := time.LoadLocation("")
 	timeFormat := "2006-01-02 15:04:05"
@@ -125,6 +125,9 @@ func UpdateUplaod(key int64, filetype global.FileType, status bool) {
 				global.Logger.Info("***公有云DCM数据上传成功，更新状态***")
 				sql := `update instance ins set ins.file_exist_obs_cloud = 1,ins.update_time_obs_cloud = ? where ins.instance_key = ?;`
 				global.DBEngine.Exec(sql, curtime, key)
+				// 更新remote_key
+				sql = `update image im set im.dcm_file_name_remote=? where im.instance_key=?`
+				global.DBEngine.Exec(sql, remotekey, key)
 			} else {
 				global.Logger.Info("***公有云DCM数据上传失败，更新状态***")
 				sql := `update instance ins set ins.file_exist_obs_cloud = 2 where ins.instance_key = ?;`
@@ -135,6 +138,10 @@ func UpdateUplaod(key int64, filetype global.FileType, status bool) {
 				global.Logger.Info("***公有云JPG数据上传成功，更新状态***")
 				sql := `update image im set im.file_exist_obs_cloud = 1,im.update_time_obs_cloud = ? where im.instance_key = ?;`
 				global.DBEngine.Exec(sql, curtime, key)
+				// 更新remote_key
+				sql = `update image im set im.img_file_name_remote=? where im.instance_key=?`
+				global.DBEngine.Exec(sql, remotekey, key)
+
 			} else {
 				global.Logger.Info("***公有云JPG数据上传失败，更新状态***")
 				sql := `update image im set im.file_exist_obs_cloud = 2 where im.instance_key = ?;`
@@ -148,6 +155,10 @@ func UpdateUplaod(key int64, filetype global.FileType, status bool) {
 				global.Logger.Info("***私有云DCM数据上传成功，更新状态***")
 				sql := `update instance ins set ins.file_exist_obs_local = 1 ,ins.update_time_obs_local = ? where ins.instance_key = ?;`
 				global.DBEngine.Exec(sql, curtime, key)
+				// 更新remote_key
+				sql = `update image im set im.dcm_file_name_remote=? where im.instance_key=?`
+				global.DBEngine.Exec(sql, remotekey, key)
+
 			} else {
 				global.Logger.Info("***私有云DCM数据上传失败，更新状态***")
 				sql := `update instance ins set ins.file_exist_obs_local = 2 where ins.instance_key = ?;`
@@ -158,6 +169,9 @@ func UpdateUplaod(key int64, filetype global.FileType, status bool) {
 				global.Logger.Info("***私有云JPG数据上传成功，更新状态***")
 				sql := `update image im set im.file_exist_obs_local = 1,im.update_time_obs_local = ? where im.instance_key = ?;`
 				global.DBEngine.Exec(sql, curtime, key)
+				// 更新remote_key
+				sql = `update image im set im.img_file_name_remote=? where im.instance_key=?`
+				global.DBEngine.Exec(sql, remotekey, key)
 			} else {
 				global.Logger.Info("***私有云JPG数据上传失败，更新状态***")
 				sql := `update image im set im.file_exist_obs_local = 2 where im.instance_key = ?;`
