@@ -3,6 +3,7 @@ package model
 import (
 	"WowjoyProject/ObjectCloudService_Upload/global"
 	"WowjoyProject/ObjectCloudService_Upload/pkg/general"
+	"time"
 )
 
 // 自动上传公有云数据
@@ -112,14 +113,18 @@ func UpdateLocalStatus(key int64) {
 
 // 上传数据后更新数据库
 func UpdateUplaod(key int64, filetype global.FileType, status bool) {
+	// 获取更新时时间
+	local, _ := time.LoadLocation("")
+	timeFormat := "2006-01-02 15:04:05"
+	curtime := time.Now().In(local).Format(timeFormat)
 	switch global.ObjectSetting.OBJECT_Store_Type {
 	case global.PublicCloud:
 		switch filetype {
 		case global.DCM:
 			if status {
 				global.Logger.Info("***公有云DCM数据上传成功，更新状态***")
-				sql := `update instance ins set ins.file_exist_obs_cloud = 1 where ins.instance_key = ?;`
-				global.DBEngine.Exec(sql, key)
+				sql := `update instance ins set ins.file_exist_obs_cloud = 1,ins.update_time_obs_cloud = ? where ins.instance_key = ?;`
+				global.DBEngine.Exec(sql, curtime, key)
 			} else {
 				global.Logger.Info("***公有云DCM数据上传失败，更新状态***")
 				sql := `update instance ins set ins.file_exist_obs_cloud = 2 where ins.instance_key = ?;`
@@ -128,8 +133,8 @@ func UpdateUplaod(key int64, filetype global.FileType, status bool) {
 		case global.JPG:
 			if status {
 				global.Logger.Info("***公有云JPG数据上传成功，更新状态***")
-				sql := `update image im set im.file_exist_obs_cloud = 1 where im.instance_key = ?;`
-				global.DBEngine.Exec(sql, key)
+				sql := `update image im set im.file_exist_obs_cloud = 1,im.update_time_obs_cloud = ? where im.instance_key = ?;`
+				global.DBEngine.Exec(sql, curtime, key)
 			} else {
 				global.Logger.Info("***公有云JPG数据上传失败，更新状态***")
 				sql := `update image im set im.file_exist_obs_cloud = 2 where im.instance_key = ?;`
@@ -141,8 +146,8 @@ func UpdateUplaod(key int64, filetype global.FileType, status bool) {
 		case global.DCM:
 			if status {
 				global.Logger.Info("***私有云DCM数据上传成功，更新状态***")
-				sql := `update instance ins set ins.file_exist_obs_local = 1 where ins.instance_key = ?;`
-				global.DBEngine.Exec(sql, key)
+				sql := `update instance ins set ins.file_exist_obs_local = 1 ,ins.update_time_obs_local = ? where ins.instance_key = ?;`
+				global.DBEngine.Exec(sql, curtime, key)
 			} else {
 				global.Logger.Info("***私有云DCM数据上传失败，更新状态***")
 				sql := `update instance ins set ins.file_exist_obs_local = 2 where ins.instance_key = ?;`
@@ -151,8 +156,8 @@ func UpdateUplaod(key int64, filetype global.FileType, status bool) {
 		case global.JPG:
 			if status {
 				global.Logger.Info("***私有云JPG数据上传成功，更新状态***")
-				sql := `update image im set im.file_exist_obs_local = 1 where im.instance_key = ?;`
-				global.DBEngine.Exec(sql, key)
+				sql := `update image im set im.file_exist_obs_local = 1,im.update_time_obs_local = ? where im.instance_key = ?;`
+				global.DBEngine.Exec(sql, curtime, key)
 			} else {
 				global.Logger.Info("***私有云JPG数据上传失败，更新状态***")
 				sql := `update image im set im.file_exist_obs_local = 2 where im.instance_key = ?;`
