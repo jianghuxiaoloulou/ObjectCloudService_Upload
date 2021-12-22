@@ -123,8 +123,8 @@ func UpdateUplaod(key int64, filetype global.FileType, remotekey string, status 
 		case global.DCM:
 			if status {
 				global.Logger.Info("***公有云DCM数据上传成功，更新状态***")
-				sql := `update instance ins set ins.file_exist_obs_cloud = 1,ins.update_time_obs_cloud = ? where ins.instance_key = ?;`
-				global.DBEngine.Exec(sql, curtime, key)
+				sql := `update instance ins set ins.file_exist_obs_cloud = 1,ins.location_code_obs_cloud = ?,ins.update_time_obs_cloud = ? where ins.instance_key = ?;`
+				global.DBEngine.Exec(sql, global.ObjectSetting.OBJECT_Upload_Success_Code, curtime, key)
 				// 更新remote_key
 				sql = `update image im set im.dcm_file_name_remote=? where im.instance_key=?`
 				global.DBEngine.Exec(sql, remotekey, key)
@@ -136,12 +136,8 @@ func UpdateUplaod(key int64, filetype global.FileType, remotekey string, status 
 		case global.JPG:
 			if status {
 				global.Logger.Info("***公有云JPG数据上传成功，更新状态***")
-				sql := `update image im set im.file_exist_obs_cloud = 1,im.update_time_obs_cloud = ? where im.instance_key = ?;`
-				global.DBEngine.Exec(sql, curtime, key)
-				// 更新remote_key
-				sql = `update image im set im.img_file_name_remote=? where im.instance_key=?`
-				global.DBEngine.Exec(sql, remotekey, key)
-
+				sql := `update image im set im.file_exist_obs_cloud = 1,im.update_time_obs_cloud = ?,im.img_file_name_remote=? where im.instance_key = ?;`
+				global.DBEngine.Exec(sql, curtime, remotekey, key)
 			} else {
 				global.Logger.Info("***公有云JPG数据上传失败，更新状态***")
 				sql := `update image im set im.file_exist_obs_cloud = 2 where im.instance_key = ?;`
@@ -153,8 +149,8 @@ func UpdateUplaod(key int64, filetype global.FileType, remotekey string, status 
 		case global.DCM:
 			if status {
 				global.Logger.Info("***私有云DCM数据上传成功，更新状态***")
-				sql := `update instance ins set ins.file_exist_obs_local = 1 ,ins.update_time_obs_local = ? where ins.instance_key = ?;`
-				global.DBEngine.Exec(sql, curtime, key)
+				sql := `update instance ins set ins.file_exist_obs_local = 1,ins.location_code_obs_local = ?,ins.update_time_obs_local = ? where ins.instance_key = ?;`
+				global.DBEngine.Exec(sql, global.ObjectSetting.OBJECT_Upload_Success_Code, curtime, key)
 				// 更新remote_key
 				sql = `update image im set im.dcm_file_name_remote=? where im.instance_key=?`
 				global.DBEngine.Exec(sql, remotekey, key)
@@ -167,11 +163,8 @@ func UpdateUplaod(key int64, filetype global.FileType, remotekey string, status 
 		case global.JPG:
 			if status {
 				global.Logger.Info("***私有云JPG数据上传成功，更新状态***")
-				sql := `update image im set im.file_exist_obs_local = 1,im.update_time_obs_local = ? where im.instance_key = ?;`
-				global.DBEngine.Exec(sql, curtime, key)
-				// 更新remote_key
-				sql = `update image im set im.img_file_name_remote=? where im.instance_key=?`
-				global.DBEngine.Exec(sql, remotekey, key)
+				sql := `update image im set im.file_exist_obs_local = 1,im.update_time_obs_local = ?,im.img_file_name_remote=? where im.instance_key = ?;`
+				global.DBEngine.Exec(sql, curtime, remotekey, key)
 			} else {
 				global.Logger.Info("***私有云JPG数据上传失败，更新状态***")
 				sql := `update image im set im.file_exist_obs_local = 2 where im.instance_key = ?;`
