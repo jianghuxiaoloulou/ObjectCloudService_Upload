@@ -100,7 +100,6 @@ func UploadFile(obj *Object) string {
 	}
 	resp, err := client.Do(request)
 	if err != nil {
-		// token = ""
 		global.Logger.Error("Do Request got err: ", err)
 		return errcode.Http_RequestError.Msg()
 	}
