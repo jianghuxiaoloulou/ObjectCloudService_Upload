@@ -13,6 +13,15 @@ const (
 	JPG                 // JPG 文件
 )
 
+// 文件状态
+type FileStatus int
+
+const (
+	FileNotExist FileStatus = iota // 文件不存在
+	FileExist                      // 文件存在
+	FileFailed                     // 文件失败
+)
+
 type ObjectData struct {
 	InstanceKey int64    // instance_key 目标key
 	FileKey     string   // 文件key

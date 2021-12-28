@@ -9,11 +9,11 @@ import (
 // 自动上传公有云数据
 func GetUploadPublicData() {
 	global.Logger.Info("******开始获取自动上传数据******")
-	sql := `select ins.instance_key,ins.file_name,im.img_file_name,sl.ip,sl.s_virtual_dir
+	sql := `select ins.instance_key,ins.file_name,im.img_file_name,sl.ip,sl.s_virtual_dir,ins.file_exist_obs_cloud,im.file_exist_obs_cloud
 	from instance ins
 	left join image im on im.instance_key = ins.instance_key
 	left join study_location sl on sl.n_station_code = ins.location_code
-	where ins.FileExist = 1 and ins.file_exist_obs_cloud = 0
+	where (ins.FileExist = 1 and ins.file_exist_obs_cloud = 0) or (im.file_exist = 1 and im.file_exist_obs_cloud = 0)
 	order by ins.instance_key asc limit ?;`
 	// global.Logger.Debug(sql)
 	rows, err := global.DBEngine.Query(sql, global.GeneralSetting.MaxTasks)
@@ -24,8 +24,8 @@ func GetUploadPublicData() {
 	defer rows.Close()
 	for rows.Next() {
 		key := KeyData{}
-		_ = rows.Scan(&key.instance_key, &key.dcmfile, &key.jpgfile, &key.ip, &key.virpath)
-		if key.jpgfile.String != "" {
+		_ = rows.Scan(&key.instance_key, &key.dcmfile, &key.jpgfile, &key.ip, &key.virpath, &key.dcmstatus, &key.jpgstatus)
+		if key.jpgfile.String != "" && key.jpgstatus.Int16 == int16(global.FileNotExist) {
 			fike_key, file_path := general.GetFilePath(key.jpgfile.String, key.ip.String, key.virpath.String)
 			global.Logger.Info("需要处理的文件名：", file_path)
 			data := global.ObjectData{
@@ -37,7 +37,7 @@ func GetUploadPublicData() {
 			}
 			global.ObjectDataChan <- data
 		}
-		if key.dcmfile.String != "" {
+		if key.dcmfile.String != "" && key.dcmstatus.Int16 == int16(global.FileNotExist) {
 			fike_key, file_path := general.GetFilePath(key.dcmfile.String, key.ip.String, key.virpath.String)
 			global.Logger.Info("需要处理的文件名：", file_path)
 			data := global.ObjectData{
@@ -58,11 +58,11 @@ func GetUploadPublicData() {
 //自动上传私有云数据
 func GetUploadPrivateData() {
 	global.Logger.Info("******开始获取自动上传数据******")
-	sql := `select ins.instance_key,ins.file_name,im.img_file_name,sl.ip,sl.s_virtual_dir
+	sql := `select ins.instance_key,ins.file_name,im.img_file_name,sl.ip,sl.s_virtual_dir,ins.file_exist_obs_local,im.file_exist_obs_local
 	from instance ins
 	left join image im on im.instance_key = ins.instance_key
 	left join study_location sl on sl.n_station_code = ins.location_code
-	where ins.FileExist = 1 and ins.file_exist_ibs_local = 0
+	where (ins.FileExist = 1 and ins.file_exist_ibs_local = 0) or (im.file_exist = 1 and im.file_exist_obs_local = 0)
 	order by ins.instance_key asc limit ?;`
 	// global.Logger.Debug(sql)
 	rows, err := global.DBEngine.Query(sql, global.GeneralSetting.MaxTasks)
@@ -73,8 +73,8 @@ func GetUploadPrivateData() {
 	defer rows.Close()
 	for rows.Next() {
 		key := KeyData{}
-		_ = rows.Scan(&key.instance_key, &key.dcmfile, &key.jpgfile, &key.ip, &key.virpath)
-		if key.jpgfile.String != "" {
+		_ = rows.Scan(&key.instance_key, &key.dcmfile, &key.jpgfile, &key.ip, &key.virpath, &key.dcmstatus, &key.jpgstatus)
+		if key.jpgfile.String != "" && key.jpgstatus.Int16 == int16(global.FileNotExist) {
 			fike_key, file_path := general.GetFilePath(key.jpgfile.String, key.ip.String, key.virpath.String)
 			global.Logger.Info("需要处理的文件名：", file_path)
 			data := global.ObjectData{
@@ -86,7 +86,7 @@ func GetUploadPrivateData() {
 			}
 			global.ObjectDataChan <- data
 		}
-		if key.dcmfile.String != "" {
+		if key.dcmfile.String != "" && key.dcmstatus.Int16 == int16(global.FileNotExist) {
 			fike_key, file_path := general.GetFilePath(key.dcmfile.String, key.ip.String, key.virpath.String)
 			global.Logger.Info("需要处理的文件名：", file_path)
 			data := global.ObjectData{
@@ -114,7 +114,7 @@ func UpdateLocalStatus(key int64) {
 // 上传数据后更新数据库
 func UpdateUplaod(key int64, filetype global.FileType, remotekey string, status bool) {
 	// 获取更新时时间
-	local, _ := time.LoadLocation("")
+	local, _ := time.LoadLocation("Local")
 	timeFormat := "2006-01-02 15:04:05"
 	curtime := time.Now().In(local).Format(timeFormat)
 	switch global.ObjectSetting.OBJECT_Store_Type {

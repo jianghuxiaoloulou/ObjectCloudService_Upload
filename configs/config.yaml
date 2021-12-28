@@ -14,7 +14,7 @@ General:
   MaxTasks: 100
   # 定时任务规则：秒/分/时/日/月/星期（cron）
   # 每天0-23时每隔10秒执行一次任务
-  CronSpec: "*/10 * 0-7 * * ?"
+  CronSpec: "*/10 * 0-23 * * ?"
 Database:
   # 树兰安吉医院：espacs:Espacs@2020@tcp(172.16.0.7:3306)/espacs?charset=utf8
   # 杭州树兰医院：espacs:espacs@2017@tcp(10.20.32.212:31967)/espacs?charset=utf8
