@@ -40,3 +40,5 @@ Object:
   OBJECT_Count: 3
   # 存储类型：（0：公有云，1：私有云）
   OBJECT_Store_Type: 0
+  # 增加上传时间节点（上传3年内的数据）
+  OBJECT_TIME: 3

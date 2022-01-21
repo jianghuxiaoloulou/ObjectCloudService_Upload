@@ -35,6 +35,7 @@ type ObjectSettingS struct {
 	OBJECT_Upload_Success_Code int
 	OBJECT_Count               int
 	OBJECT_Store_Type          int
+	OBJECT_TIME                int
 }
 
 func (s *Setting) ReadSection(k string, v interface{}) error {

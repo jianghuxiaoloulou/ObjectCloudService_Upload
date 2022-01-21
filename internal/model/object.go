@@ -15,9 +15,10 @@ func GetUploadPublicData() {
 	left join file_remote fr on ins.instance_key = fr.instance_key
 	left join study_location sl on sl.n_station_code = ins.location_code
 	where (fr.dcm_file_exist = 1 and fr.dcm_file_exist_obs_cloud = 0) or (fr.img_file_exist = 1 and fr.img_file_exist_obs_cloud = 0)
-	order by ins.instance_key desc limit ?;`
+	and timestampdiff(YEAR,fr.dcm_update_time_retrieve,now()) < ?
+	limit ?;`
 	// global.Logger.Debug(sql)
-	rows, err := global.DBEngine.Query(sql, global.GeneralSetting.MaxTasks)
+	rows, err := global.DBEngine.Query(sql, global.ObjectSetting.OBJECT_TIME, global.GeneralSetting.MaxTasks)
 	if err != nil {
 		global.Logger.Fatal(err)
 		return
@@ -65,9 +66,10 @@ func GetUploadPrivateData() {
 	left join file_remote fr on ins.instance_key = fr.instance_key
 	left join study_location sl on sl.n_station_code = ins.location_code
 	where (fr.dcm_file_exist = 1 and fr.dcm_file_exist_obs_local = 0) or (fr.img_file_exist = 1 and fr.img_file_exist_obs_local = 0)
-	order by ins.instance_key desc limit ?;`
+	and timestampdiff(YEAR,fr.dcm_update_time_retrieve,now()) < ?
+	limit ?;`
 	// global.Logger.Debug(sql)
-	rows, err := global.DBEngine.Query(sql, global.GeneralSetting.MaxTasks)
+	rows, err := global.DBEngine.Query(sql, global.ObjectSetting.OBJECT_TIME, global.GeneralSetting.MaxTasks)
 	if err != nil {
 		global.Logger.Fatal(err)
 		return
