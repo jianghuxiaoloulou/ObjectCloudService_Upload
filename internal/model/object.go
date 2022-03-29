@@ -9,50 +9,71 @@ import (
 // 自动上传公有云数据
 func GetUploadPublicData() {
 	global.Logger.Info("******开始获取自动上传数据******")
-	sql := `select ins.instance_key,ins.file_name,im.img_file_name,sl.ip,sl.s_virtual_dir,fr.dcm_file_exist_obs_cloud,fr.img_file_exist_obs_cloud
+	sql := `select ins.instance_key,ins.file_name,im.img_file_name,sl.ip,sl.s_virtual_dir,fr.dcm_file_exist_obs_cloud,fr.img_file_exist_obs_cloud,fr.dcm_update_time_retrieve
 	from instance ins
 	left join image im on im.instance_key = ins.instance_key
 	left join file_remote fr on ins.instance_key = fr.instance_key
 	left join study_location sl on sl.n_station_code = ins.location_code
-	where (fr.dcm_file_exist = 1 and fr.dcm_file_exist_obs_cloud = 0) or (fr.img_file_exist = 1 and fr.img_file_exist_obs_cloud = 0)
-	and timestampdiff(YEAR,fr.dcm_update_time_retrieve,now()) < ?
-	limit ?;`
+	where ((fr.dcm_file_exist = 1 and fr.dcm_file_exist_obs_cloud = 0) or (fr.img_file_exist = 1 and fr.img_file_exist_obs_cloud = 0))
+	order by fr.dcm_update_time_retrieve desc limit ?;`
 	// global.Logger.Debug(sql)
-	rows, err := global.DBEngine.Query(sql, global.ObjectSetting.OBJECT_TIME, global.GeneralSetting.MaxTasks)
+	rows, err := global.DBEngine.Query(sql, global.GeneralSetting.MaxTasks)
 	if err != nil {
-		global.Logger.Fatal(err)
+		global.Logger.Fatal("Query error: ", err)
 		return
 	}
 	defer rows.Close()
 	for rows.Next() {
 		key := KeyData{}
-		_ = rows.Scan(&key.instance_key, &key.dcmfile, &key.jpgfile, &key.ip, &key.virpath, &key.dcmstatus, &key.jpgstatus)
-		if key.jpgfile.String != "" && key.jpgstatus.Int16 == int16(global.FileNotExist) {
-			fike_key, file_path := general.GetFilePath(key.jpgfile.String, key.ip.String, key.virpath.String)
-			global.Logger.Info("需要处理的文件名：", file_path)
-			data := global.ObjectData{
-				InstanceKey: key.instance_key.Int64,
-				FileKey:     fike_key,
-				FilePath:    file_path,
-				Type:        global.JPG,
-				Count:       1,
-			}
-			global.ObjectDataChan <- data
+		err = rows.Scan(&key.instance_key, &key.dcmfile, &key.jpgfile, &key.ip, &key.virpath, &key.dcmstatus, &key.jpgstatus, &key.dttm_time)
+		if err != nil {
+			global.Logger.Fatal("rows.Scan error: ", err)
+			return
 		}
-		if key.dcmfile.String != "" && key.dcmstatus.Int16 == int16(global.FileNotExist) {
-			fike_key, file_path := general.GetFilePath(key.dcmfile.String, key.ip.String, key.virpath.String)
-			global.Logger.Info("需要处理的文件名：", file_path)
-			data := global.ObjectData{
-				InstanceKey: key.instance_key.Int64,
-				FileKey:     fike_key,
-				FilePath:    file_path,
-				Type:        global.DCM,
-				Count:       1,
+		global.Logger.Debug("KeyData: ", key)
+		if key.dttm_time.Valid && key.dttm_time.String != "" {
+			sql := `select timestampdiff(YEAR,?,now())`
+			row := global.DBEngine.QueryRow(sql, key.dttm_time.String)
+			if err := row.Scan(&key.objtect_time); err != nil {
+				global.Logger.Error(err)
+				return
 			}
-			global.ObjectDataChan <- data
-		} else {
-			global.Logger.Error(key.instance_key.Int64, ": DCM文件不存在")
-			UpdateLocalStatus(key.instance_key.Int64)
+			if int(key.objtect_time.Int16) <= global.ObjectSetting.OBJECT_TIME {
+				if key.jpgfile.String != "" && key.jpgstatus.Int16 == int16(global.FileNotExist) {
+					fike_key, file_path := general.GetFilePath(key.jpgfile.String, key.ip.String, key.virpath.String)
+					global.Logger.Info("需要处理的文件名：", file_path)
+					data := global.ObjectData{
+						InstanceKey: key.instance_key.Int64,
+						FileKey:     fike_key,
+						FilePath:    file_path,
+						Type:        global.JPG,
+						Count:       1,
+					}
+					global.Logger.Info("通道数据len: ", len(global.ObjectDataChan), " ,通道数据cap: ", cap(global.ObjectDataChan))
+					global.ObjectDataChan <- data
+				} else if key.jpgfile.String == "" {
+					global.Logger.Error(key.instance_key.Int64, ": JPG文件不存在")
+					UpdateLocalJPGStatus(key.instance_key.Int64)
+				}
+				if key.dcmfile.String != "" && key.dcmstatus.Int16 == int16(global.FileNotExist) {
+					fike_key, file_path := general.GetFilePath(key.dcmfile.String, key.ip.String, key.virpath.String)
+					global.Logger.Info("需要处理的文件名：", file_path)
+					data := global.ObjectData{
+						InstanceKey: key.instance_key.Int64,
+						FileKey:     fike_key,
+						FilePath:    file_path,
+						Type:        global.DCM,
+						Count:       1,
+					}
+					global.Logger.Info("通道数据len: ", len(global.ObjectDataChan), " ,通道数据cap: ", cap(global.ObjectDataChan))
+					global.ObjectDataChan <- data
+				} else if key.dcmfile.String == "" {
+					global.Logger.Error(key.instance_key.Int64, ": DCM文件不存在")
+					UpdateLocalStatus(key.instance_key.Int64)
+				}
+			} else {
+				return
+			}
 		}
 	}
 }
@@ -60,16 +81,15 @@ func GetUploadPublicData() {
 //自动上传私有云数据
 func GetUploadPrivateData() {
 	global.Logger.Info("******开始获取自动上传数据******")
-	sql := `select ins.instance_key,ins.file_name,im.img_file_name,sl.ip,sl.s_virtual_dir,fr.dcm_file_exist_obs_local,fr.img_file_exist_obs_local
+	sql := `select ins.instance_key,ins.file_name,im.img_file_name,sl.ip,sl.s_virtual_dir,fr.dcm_file_exist_obs_local,fr.img_file_exist_obs_local,fr.dcm_update_time_retrieve
 	from instance ins
 	left join image im on im.instance_key = ins.instance_key
 	left join file_remote fr on ins.instance_key = fr.instance_key
 	left join study_location sl on sl.n_station_code = ins.location_code
-	where (fr.dcm_file_exist = 1 and fr.dcm_file_exist_obs_local = 0) or (fr.img_file_exist = 1 and fr.img_file_exist_obs_local = 0)
-	and timestampdiff(YEAR,fr.dcm_update_time_retrieve,now()) < ?
-	limit ?;`
+	where ((fr.dcm_file_exist = 1 and fr.dcm_file_exist_obs_local = 0)  or (fr.img_file_exist = 1 and fr.img_file_exist_obs_local = 0))
+	order by fr.dcm_update_time_retrieve desc limit ?;`
 	// global.Logger.Debug(sql)
-	rows, err := global.DBEngine.Query(sql, global.ObjectSetting.OBJECT_TIME, global.GeneralSetting.MaxTasks)
+	rows, err := global.DBEngine.Query(sql, global.GeneralSetting.MaxTasks)
 	if err != nil {
 		global.Logger.Fatal(err)
 		return
@@ -77,41 +97,68 @@ func GetUploadPrivateData() {
 	defer rows.Close()
 	for rows.Next() {
 		key := KeyData{}
-		_ = rows.Scan(&key.instance_key, &key.dcmfile, &key.jpgfile, &key.ip, &key.virpath, &key.dcmstatus, &key.jpgstatus)
-		if key.jpgfile.String != "" && key.jpgstatus.Int16 == int16(global.FileNotExist) {
-			fike_key, file_path := general.GetFilePath(key.jpgfile.String, key.ip.String, key.virpath.String)
-			global.Logger.Info("需要处理的文件名：", file_path)
-			data := global.ObjectData{
-				InstanceKey: key.instance_key.Int64,
-				FileKey:     fike_key,
-				FilePath:    file_path,
-				Type:        global.JPG,
-				Count:       1,
-			}
-			global.ObjectDataChan <- data
+		err = rows.Scan(&key.instance_key, &key.dcmfile, &key.jpgfile, &key.ip, &key.virpath, &key.dcmstatus, &key.jpgstatus, &key.dttm_time)
+		if err != nil {
+			global.Logger.Fatal("rows.Scan error: ", err)
+			return
 		}
-		if key.dcmfile.String != "" && key.dcmstatus.Int16 == int16(global.FileNotExist) {
-			fike_key, file_path := general.GetFilePath(key.dcmfile.String, key.ip.String, key.virpath.String)
-			global.Logger.Info("需要处理的文件名：", file_path)
-			data := global.ObjectData{
-				InstanceKey: key.instance_key.Int64,
-				FileKey:     fike_key,
-				FilePath:    file_path,
-				Type:        global.DCM,
-				Count:       1,
+		global.Logger.Debug("KeyData: ", key)
+		if key.dttm_time.Valid && key.dttm_time.String != "" {
+			sql := `select timestampdiff(YEAR,?,now())`
+			row := global.DBEngine.QueryRow(sql, key.dttm_time.String)
+			if err := row.Scan(&key.objtect_time); err != nil {
+				global.Logger.Error(err)
+				return
 			}
-			global.ObjectDataChan <- data
-		} else {
-			global.Logger.Error(key.instance_key.Int64, ": DCM文件不存在")
-			UpdateLocalStatus(key.instance_key.Int64)
+			if int(key.objtect_time.Int16) <= global.ObjectSetting.OBJECT_TIME {
+				if key.jpgfile.String != "" && key.jpgstatus.Int16 == int16(global.FileNotExist) {
+					fike_key, file_path := general.GetFilePath(key.jpgfile.String, key.ip.String, key.virpath.String)
+					global.Logger.Info("需要处理的文件名：", file_path)
+					data := global.ObjectData{
+						InstanceKey: key.instance_key.Int64,
+						FileKey:     fike_key,
+						FilePath:    file_path,
+						Type:        global.JPG,
+						Count:       1,
+					}
+					global.Logger.Info("通道数据len: ", len(global.ObjectDataChan), " ,通道数据cap: ", cap(global.ObjectDataChan))
+					global.ObjectDataChan <- data
+				} else if key.jpgfile.String == "" {
+					global.Logger.Error(key.instance_key.Int64, ": JPG文件不存在")
+					UpdateLocalJPGStatus(key.instance_key.Int64)
+				}
+				if key.dcmfile.String != "" && key.dcmstatus.Int16 == int16(global.FileNotExist) {
+					fike_key, file_path := general.GetFilePath(key.dcmfile.String, key.ip.String, key.virpath.String)
+					global.Logger.Info("需要处理的文件名：", file_path)
+					data := global.ObjectData{
+						InstanceKey: key.instance_key.Int64,
+						FileKey:     fike_key,
+						FilePath:    file_path,
+						Type:        global.DCM,
+						Count:       1,
+					}
+					global.Logger.Info("通道数据len: ", len(global.ObjectDataChan), " ,通道数据cap: ", cap(global.ObjectDataChan))
+					global.ObjectDataChan <- data
+				} else if key.dcmfile.String == "" {
+					global.Logger.Error(key.instance_key.Int64, ": DCM文件不存在")
+					UpdateLocalStatus(key.instance_key.Int64)
+				}
+			} else {
+				return
+			}
 		}
 	}
 }
 
 // 更新不存在的DCM字段
 func UpdateLocalStatus(key int64) {
-	global.Logger.Info("***DCM文件不存在，更新状态***")
-	sql := `update file_remote fr set fr.dcm_file_exist = 1 where fr.instance_key = ?;`
+	sql := `update file_remote fr set fr.dcm_file_exist = 0 where fr.instance_key = ?;`
+	global.DBEngine.Exec(sql, key)
+}
+
+// 更新不存在的JPG字段
+func UpdateLocalJPGStatus(key int64) {
+	sql := `update file_remote fr set fr.img_file_exist = 0 where fr.instance_key = ?;`
 	global.DBEngine.Exec(sql, key)
 }
 

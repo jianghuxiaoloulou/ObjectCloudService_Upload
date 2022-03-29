@@ -9,8 +9,10 @@ import (
 	"io"
 	"io/ioutil"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"os"
+	"time"
 )
 
 //var token string
@@ -45,12 +47,13 @@ func (obj *Object) UploadObject() {
 	} else {
 		global.Logger.Info("数据上传失败", obj.Key)
 		// 上传失败时先补偿操作，补偿操作失败后才更新数据库
-		if !ReDo(obj) {
-			global.Logger.Info("数据补偿失败", obj.Key)
-			global.Logger.Info(obj.Key, " :文件删除失败，更新标志")
-			// 上传失败更新数据库
-			model.UpdateUplaod(obj.Key, obj.Type, obj.FileKey, false)
-		}
+		// if !ReDo(obj) {
+		// 	global.Logger.Info("数据补偿失败", obj.Key)
+		// 	// 上传失败更新数据库
+		// 	model.UpdateUplaod(obj.Key, obj.Type, obj.FileKey, false)
+		// }
+		model.UpdateUplaod(obj.Key, obj.Type, obj.FileKey, false)
+
 	}
 }
 
@@ -92,13 +95,18 @@ func UploadFile(obj *Object) string {
 	request.Header.Set("accessKey", global.ObjectSetting.OBJECT_AK)
 	request.Header.Set("Content-Type", writer.FormDataContentType())
 	request.Header.Set("Connection", "close")
+	connectTimeout := 60 * time.Second
+	readWriteTimeout := 60 * time.Second
 	transport := http.Transport{
 		DisableKeepAlives: true,
+		// TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+		Dial: TimeoutDialer(connectTimeout, readWriteTimeout),
 	}
 	client := &http.Client{
 		Transport: &transport,
 	}
 	resp, err := client.Do(request)
+	global.Logger.Info("开始发起http client.Do: ", obj.Key)
 	if err != nil {
 		global.Logger.Error("Do Request got err: ", err)
 		return errcode.Http_RequestError.Msg()
@@ -141,4 +149,15 @@ func ReDo(obj *Object) bool {
 		return true
 	}
 	return false
+}
+
+func TimeoutDialer(cTimeout time.Duration, rwTimeout time.Duration) func(net, addr string) (c net.Conn, err error) {
+	return func(netw, addr string) (net.Conn, error) {
+		conn, err := net.DialTimeout(netw, addr, cTimeout)
+		if err != nil {
+			return nil, err
+		}
+		conn.SetDeadline(time.Now().Add(rwTimeout))
+		return conn, nil
+	}
 }

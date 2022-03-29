@@ -5,6 +5,8 @@ import (
 	"WowjoyProject/ObjectCloudService_Upload/internal/model"
 	"WowjoyProject/ObjectCloudService_Upload/pkg/object"
 	"WowjoyProject/ObjectCloudService_Upload/pkg/workpattern"
+	"runtime"
+	"time"
 
 	"github.com/robfig/cron"
 )
@@ -28,6 +30,9 @@ func main() {
 			case data := <-global.ObjectDataChan:
 				sc := &Dosomething{key: data}
 				wokerPool.JobQueue <- sc
+			case <-time.After(60 * time.Second):
+				global.Logger.Info("timeout")
+				<-global.ObjectDataChan
 			}
 		}
 	}()
@@ -49,7 +54,7 @@ func run() {
 	// 方式一：
 	// for {
 	// 	time.Sleep(time.Second * 10)
-	// 	model.AutoUploadObjectData()
+	// 	work()
 	// }
 	// 方式二：获取任务(定时任务)
 	MyCron := cron.New()
@@ -63,6 +68,7 @@ func run() {
 }
 
 func work() {
+	global.Logger.Debug("runtime.NumGoroutine :", runtime.NumGoroutine())
 	switch global.ObjectSetting.OBJECT_Store_Type {
 	case global.PublicCloud:
 		global.Logger.Info("***公有云数据上传***")
