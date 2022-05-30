@@ -3,6 +3,7 @@ package model
 import (
 	"WowjoyProject/ObjectCloudService_Upload/pkg/setting"
 	"database/sql"
+	"time"
 
 	_ "github.com/jinzhu/gorm/dialects/mysql"
 )
@@ -19,6 +20,7 @@ func NewDBEngine(databaseSetting *setting.DatabaseSettingS) (*sql.DB, error) {
 		return nil, err
 	}
 	// 数据库最大连接数
+	db.SetConnMaxLifetime(time.Duration(databaseSetting.MaxLifetime) * time.Minute)
 	db.SetMaxOpenConns(databaseSetting.MaxIdleConns)
 	db.SetMaxIdleConns(databaseSetting.MaxIdleConns)
 

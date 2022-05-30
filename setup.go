@@ -53,9 +53,18 @@ func setupLogger() error {
 	return nil
 }
 
-func setupDBEngine() error {
+func setupReadDBEngine() error {
 	var err error
-	global.DBEngine, err = model.NewDBEngine(global.DatabaseSetting)
+	global.ReadDBEngine, err = model.NewDBEngine(global.DatabaseSetting)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func setupWriteDBEngine() error {
+	var err error
+	global.WriteDBEngine, err = model.NewDBEngine(global.DatabaseSetting)
 	if err != nil {
 		return err
 	}
@@ -71,8 +80,12 @@ func readSetup() {
 	if err != nil {
 		log.Fatalf("init.setupLogger err: %v", err)
 	}
-	err = setupDBEngine()
+	err = setupReadDBEngine()
 	if err != nil {
-		log.Fatalf("init.setupDBEngine err: %v", err)
+		log.Fatalf("init.setupReadDBEngine err: %v", err)
+	}
+	err = setupWriteDBEngine()
+	if err != nil {
+		log.Fatalf("init.setupWriteDBEngine err: %v", err)
 	}
 }

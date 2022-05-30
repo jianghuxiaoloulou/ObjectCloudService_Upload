@@ -3,5 +3,6 @@ package global
 import "database/sql"
 
 var (
-	DBEngine *sql.DB
+	ReadDBEngine  *sql.DB
+	WriteDBEngine *sql.DB
 )

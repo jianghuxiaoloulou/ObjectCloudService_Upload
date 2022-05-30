@@ -32,4 +32,16 @@ type ObjectData struct {
 
 var (
 	ObjectDataChan chan ObjectData
+	RunStatus      bool // 当前获取的数据是否运行完成
 )
+
+// 分段文件结果
+type FileResult struct {
+	PartNumber int    `json:"partNumber"`
+	Etag       string `json:"etag"`
+}
+
+type JosnData struct {
+	UploadId  string       `json:"uploadId"`
+	PartEtags []FileResult `json:"partETags"`
+}

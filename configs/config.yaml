@@ -9,7 +9,7 @@ General:
   LogFileName: log
   LogFileExt: .log
   LogMaxSize: 60
-  LogMaxAge: 7
+  LogMaxAge: 3
   MaxThreads: 100
   MaxTasks: 100
   # 定时任务规则：秒/分/时/日/月/星期（cron）
@@ -23,6 +23,7 @@ Database:
   DBType: mysql
   MaxIdleConns: 100
   MaxOpenConns: 100
+  MaxLifetime: 60
 Object:
   # 医院 storageId + resName 可以唯一确定 resId
   OBJECT_ResId: c09fd3b6bdbf420b848e5a9eeca38650
@@ -42,3 +43,19 @@ Object:
   OBJECT_Store_Type: 0
   # 增加上传时间节点（上传3年内的数据）
   OBJECT_TIME: 3
+  # 大文件分段限制
+  # 分段依据大小8M
+  File_Fragment_Size: 8
+  # 分段每段大小5M
+  Each_Section_Size: 5
+  # 分段临时文件保存文件夹
+  File_Split_Temp: ./tempFile
+  # 分段上传
+  # 分段上传第 1 步：初始化分段上传
+  OBJECT_Multipart_Init_URL: http://172.16.0.16:31460//v1/object/multipart/initaliztion
+  # 分段上传第 2 步 :分段对象上传
+  OBJECT_Multipart_Upload_URL: http://172.16.0.16:31460/v1/object/multipart
+  # 分段上传第 3 步: 完成对象分段上传
+  OBJECT_Multipart_Completion_URL: http://172.16.0.16:31460/v1/object/multipart/completion
+  # 分段上传第 3 步: 取消对象分段上传
+  OBJECT_Multipart_Abortion_URL: http://172.16.0.16:31460/v1/object/multipart/abortion

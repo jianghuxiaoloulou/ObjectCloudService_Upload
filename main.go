@@ -36,6 +36,7 @@ func main() {
 			}
 		}
 	}()
+	global.RunStatus = false
 	run()
 }
 

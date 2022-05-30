@@ -8,7 +8,12 @@ import (
 
 // 自动上传公有云数据
 func GetUploadPublicData() {
-	global.Logger.Info("******开始获取自动上传数据******")
+	if global.RunStatus {
+		global.Logger.Info("上次获取的数据没有消耗完，等待消耗完，再获取数据....")
+		return
+	}
+	global.RunStatus = true
+	global.Logger.Info("******自动上传公有云数据******")
 	sql := `select ins.instance_key,ins.file_name,im.img_file_name,sl.ip,sl.s_virtual_dir,fr.dcm_file_exist_obs_cloud,fr.img_file_exist_obs_cloud,fr.dcm_update_time_retrieve
 	from instance ins
 	left join image im on im.instance_key = ins.instance_key
@@ -16,8 +21,8 @@ func GetUploadPublicData() {
 	left join study_location sl on sl.n_station_code = ins.location_code
 	where ((fr.dcm_file_exist = 1 and fr.dcm_file_exist_obs_cloud = 0) or (fr.img_file_exist = 1 and fr.img_file_exist_obs_cloud = 0))
 	order by fr.dcm_update_time_retrieve desc limit ?;`
-	// global.Logger.Debug(sql)
-	rows, err := global.DBEngine.Query(sql, global.GeneralSetting.MaxTasks)
+	global.Logger.Debug("开始执行数据库数据查询", global.ReadDBEngine.Stats())
+	rows, err := global.ReadDBEngine.Query(sql, global.GeneralSetting.MaxTasks)
 	if err != nil {
 		global.Logger.Fatal("Query error: ", err)
 		return
@@ -33,7 +38,7 @@ func GetUploadPublicData() {
 		global.Logger.Debug("KeyData: ", key)
 		if key.dttm_time.Valid && key.dttm_time.String != "" {
 			sql := `select timestampdiff(YEAR,?,now())`
-			row := global.DBEngine.QueryRow(sql, key.dttm_time.String)
+			row := global.WriteDBEngine.QueryRow(sql, key.dttm_time.String)
 			if err := row.Scan(&key.objtect_time); err != nil {
 				global.Logger.Error(err)
 				return
@@ -49,7 +54,7 @@ func GetUploadPublicData() {
 						Type:        global.JPG,
 						Count:       1,
 					}
-					global.Logger.Info("通道数据len: ", len(global.ObjectDataChan), " ,通道数据cap: ", cap(global.ObjectDataChan))
+					//global.Logger.Info("通道数据len: ", len(global.ObjectDataChan), " ,通道数据cap: ", cap(global.ObjectDataChan))
 					global.ObjectDataChan <- data
 				} else if key.jpgfile.String == "" {
 					global.Logger.Error(key.instance_key.Int64, ": JPG文件不存在")
@@ -65,22 +70,26 @@ func GetUploadPublicData() {
 						Type:        global.DCM,
 						Count:       1,
 					}
-					global.Logger.Info("通道数据len: ", len(global.ObjectDataChan), " ,通道数据cap: ", cap(global.ObjectDataChan))
+					//global.Logger.Info("通道数据len: ", len(global.ObjectDataChan), " ,通道数据cap: ", cap(global.ObjectDataChan))
 					global.ObjectDataChan <- data
 				} else if key.dcmfile.String == "" {
 					global.Logger.Error(key.instance_key.Int64, ": DCM文件不存在")
 					UpdateLocalStatus(key.instance_key.Int64)
 				}
-			} else {
-				return
 			}
 		}
 	}
+	global.RunStatus = false
 }
 
 //自动上传私有云数据
 func GetUploadPrivateData() {
-	global.Logger.Info("******开始获取自动上传数据******")
+	if global.RunStatus {
+		global.Logger.Info("上次获取的数据没有消耗完，等待消耗完，再获取数据....")
+		return
+	}
+	global.Logger.Info("******自动上传私有云数据******")
+	global.RunStatus = true
 	sql := `select ins.instance_key,ins.file_name,im.img_file_name,sl.ip,sl.s_virtual_dir,fr.dcm_file_exist_obs_local,fr.img_file_exist_obs_local,fr.dcm_update_time_retrieve
 	from instance ins
 	left join image im on im.instance_key = ins.instance_key
@@ -89,7 +98,9 @@ func GetUploadPrivateData() {
 	where ((fr.dcm_file_exist = 1 and fr.dcm_file_exist_obs_local = 0)  or (fr.img_file_exist = 1 and fr.img_file_exist_obs_local = 0))
 	order by fr.dcm_update_time_retrieve desc limit ?;`
 	// global.Logger.Debug(sql)
-	rows, err := global.DBEngine.Query(sql, global.GeneralSetting.MaxTasks)
+	global.Logger.Debug("开始执行数据库数据查询", global.ReadDBEngine.Stats())
+	rows, err := global.ReadDBEngine.Query(sql, global.GeneralSetting.MaxTasks)
+	global.Logger.Debug("ReadDB.Query: ", err)
 	if err != nil {
 		global.Logger.Fatal(err)
 		return
@@ -105,7 +116,7 @@ func GetUploadPrivateData() {
 		global.Logger.Debug("KeyData: ", key)
 		if key.dttm_time.Valid && key.dttm_time.String != "" {
 			sql := `select timestampdiff(YEAR,?,now())`
-			row := global.DBEngine.QueryRow(sql, key.dttm_time.String)
+			row := global.WriteDBEngine.QueryRow(sql, key.dttm_time.String)
 			if err := row.Scan(&key.objtect_time); err != nil {
 				global.Logger.Error(err)
 				return
@@ -121,7 +132,7 @@ func GetUploadPrivateData() {
 						Type:        global.JPG,
 						Count:       1,
 					}
-					global.Logger.Info("通道数据len: ", len(global.ObjectDataChan), " ,通道数据cap: ", cap(global.ObjectDataChan))
+					// global.Logger.Info("通道数据len: ", len(global.ObjectDataChan), " ,通道数据cap: ", cap(global.ObjectDataChan))
 					global.ObjectDataChan <- data
 				} else if key.jpgfile.String == "" {
 					global.Logger.Error(key.instance_key.Int64, ": JPG文件不存在")
@@ -137,29 +148,28 @@ func GetUploadPrivateData() {
 						Type:        global.DCM,
 						Count:       1,
 					}
-					global.Logger.Info("通道数据len: ", len(global.ObjectDataChan), " ,通道数据cap: ", cap(global.ObjectDataChan))
+					// global.Logger.Info("通道数据len: ", len(global.ObjectDataChan), " ,通道数据cap: ", cap(global.ObjectDataChan))
 					global.ObjectDataChan <- data
 				} else if key.dcmfile.String == "" {
 					global.Logger.Error(key.instance_key.Int64, ": DCM文件不存在")
 					UpdateLocalStatus(key.instance_key.Int64)
 				}
-			} else {
-				return
 			}
 		}
 	}
+	global.RunStatus = false
 }
 
 // 更新不存在的DCM字段
 func UpdateLocalStatus(key int64) {
 	sql := `update file_remote fr set fr.dcm_file_exist = 0 where fr.instance_key = ?;`
-	global.DBEngine.Exec(sql, key)
+	global.WriteDBEngine.Exec(sql, key)
 }
 
 // 更新不存在的JPG字段
 func UpdateLocalJPGStatus(key int64) {
 	sql := `update file_remote fr set fr.img_file_exist = 0 where fr.instance_key = ?;`
-	global.DBEngine.Exec(sql, key)
+	global.WriteDBEngine.Exec(sql, key)
 }
 
 // 上传数据后更新数据库
@@ -175,21 +185,21 @@ func UpdateUplaod(key int64, filetype global.FileType, remotekey string, status 
 			if status {
 				global.Logger.Info("***公有云DCM数据上传成功，更新状态***")
 				sql := `update file_remote fr set fr.dcm_file_exist_obs_cloud = 1,fr.dcm_location_code_obs_cloud = ?,fr.dcm_update_time_obs_cloud = ?,fr.dcm_file_name_remote = ? where fr.instance_key = ?;`
-				global.DBEngine.Exec(sql, global.ObjectSetting.OBJECT_Upload_Success_Code, curtime, remotekey, key)
+				global.WriteDBEngine.Exec(sql, global.ObjectSetting.OBJECT_Upload_Success_Code, curtime, remotekey, key)
 			} else {
 				global.Logger.Info("***公有云DCM数据上传失败，更新状态***")
 				sql := `update file_remote fr set fr.dcm_file_exist_obs_cloud = 2 where fr.instance_key = ?;`
-				global.DBEngine.Exec(sql, key)
+				global.WriteDBEngine.Exec(sql, key)
 			}
 		case global.JPG:
 			if status {
 				global.Logger.Info("***公有云JPG数据上传成功，更新状态***")
 				sql := `update file_remote fr set fr.img_file_exist_obs_cloud = 1,fr.img_update_time_obs_cloud = ?,fr.img_file_name_remote=? where fr.instance_key = ?;`
-				global.DBEngine.Exec(sql, curtime, remotekey, key)
+				global.WriteDBEngine.Exec(sql, curtime, remotekey, key)
 			} else {
 				global.Logger.Info("***公有云JPG数据上传失败，更新状态***")
 				sql := `update file_remote fr set fr.img_file_exist_obs_cloud = 2 where fr.instance_key = ?;`
-				global.DBEngine.Exec(sql, key)
+				global.WriteDBEngine.Exec(sql, key)
 			}
 		}
 	case global.PrivateCloud:
@@ -198,21 +208,21 @@ func UpdateUplaod(key int64, filetype global.FileType, remotekey string, status 
 			if status {
 				global.Logger.Info("***私有云DCM数据上传成功，更新状态***")
 				sql := `update file_remote fr set fr.dcm_file_exist_obs_local = 1,fr.dcm_location_code_obs_local = ?,fr.dcm_update_time_obs_local = ?,fr.dcm_file_name_remote = ? where fr.instance_key = ?;`
-				global.DBEngine.Exec(sql, global.ObjectSetting.OBJECT_Upload_Success_Code, curtime, remotekey, key)
+				global.WriteDBEngine.Exec(sql, global.ObjectSetting.OBJECT_Upload_Success_Code, curtime, remotekey, key)
 			} else {
 				global.Logger.Info("***私有云DCM数据上传失败，更新状态***")
 				sql := `update file_remote fr set fr.dcm_file_exist_obs_local = 2 where fr.instance_key = ?;`
-				global.DBEngine.Exec(sql, key)
+				global.WriteDBEngine.Exec(sql, key)
 			}
 		case global.JPG:
 			if status {
 				global.Logger.Info("***私有云JPG数据上传成功，更新状态***")
 				sql := `update file_remote fr set fr.img_file_exist_obs_local = 1,fr.img_update_time_obs_local = ?,fr.img_file_name_remote=? where fr.instance_key = ?;`
-				global.DBEngine.Exec(sql, curtime, remotekey, key)
+				global.WriteDBEngine.Exec(sql, curtime, remotekey, key)
 			} else {
 				global.Logger.Info("***私有云JPG数据上传失败，更新状态***")
 				sql := `update file_remote fr set fr.img_file_exist_obs_local = 2 where fr.instance_key = ?;`
-				global.DBEngine.Exec(sql, key)
+				global.WriteDBEngine.Exec(sql, key)
 			}
 		}
 	}

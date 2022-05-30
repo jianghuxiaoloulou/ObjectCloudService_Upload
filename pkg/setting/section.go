@@ -25,17 +25,25 @@ type DatabaseSettingS struct {
 	DBType       string
 	MaxIdleConns int
 	MaxOpenConns int
+	MaxLifetime  int
 }
 
 type ObjectSettingS struct {
-	OBJECT_ResId               string
-	OBJECT_AK                  string
-	OBJECT_POST_Upload         string
-	UPLOAD_ROOT                string
-	OBJECT_Upload_Success_Code int
-	OBJECT_Count               int
-	OBJECT_Store_Type          int
-	OBJECT_TIME                int
+	OBJECT_ResId                    string
+	OBJECT_AK                       string
+	OBJECT_POST_Upload              string
+	UPLOAD_ROOT                     string
+	OBJECT_Upload_Success_Code      int
+	OBJECT_Count                    int
+	OBJECT_Store_Type               int
+	OBJECT_TIME                     int
+	File_Fragment_Size              int
+	Each_Section_Size               int
+	File_Split_Temp                 string
+	OBJECT_Multipart_Init_URL       string
+	OBJECT_Multipart_Upload_URL     string
+	OBJECT_Multipart_Completion_URL string
+	OBJECT_Multipart_Abortion_URL   string
 }
 
 func (s *Setting) ReadSection(k string, v interface{}) error {
