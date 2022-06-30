@@ -88,6 +88,7 @@ func UploadFile(obj *Object) string {
 	global.Logger.Debug("操作的URL: ", url)
 	file, err := os.Open(obj.FilePath)
 	if err != nil {
+		global.Logger.Error("Open File err :", err)
 		return errcode.File_OpenError.Msg()
 	}
 	defer file.Close()
@@ -102,6 +103,7 @@ func UploadFile(obj *Object) string {
 	}
 	_, err = io.Copy(formFile, file)
 	if err != nil {
+		global.Logger.Error("File Copy err :", err)
 		return errcode.File_CopyError.Msg()
 	}
 
@@ -135,6 +137,7 @@ func UploadFile(obj *Object) string {
 
 	content, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		global.Logger.Error("ioutil.ReadAll err: ", err)
 		return errcode.Http_RespError.Msg()
 	}
 	global.Logger.Info("resp.Body: ", string(content))
@@ -167,16 +170,26 @@ func UploadLargeFile(obj *Object, size int64) string {
 	// 2.开始上传小段对象
 	var uploadRsult []global.FileResult
 	var status bool
-	status, uploadRsult = Multipart_Upload(obj, UploadId)
+	var code string
+	// 将大文件分成小文件
+	TragetSize := global.ObjectSetting.Each_Section_Size << 20
+	var fileMap = make(map[int]string)
+	fileMap = general.FileSplit(obj.FilePath, int64(TragetSize))
+	global.Logger.Debug("文件分段的map: ", fileMap)
+	status, uploadRsult = Multipart_Upload(obj, UploadId, fileMap)
 	if status {
 		// 文件上传成功完结操作
-		code := Multipart_Completion(obj, UploadId, uploadRsult)
-		return code
+		code = Multipart_Completion(obj, UploadId, uploadRsult)
 	} else {
 		// 文件上传失败取消操作
 		Multipart_Abortion(obj, UploadId)
 	}
-	return ""
+	// 删除分段文件
+	for _, k := range fileMap {
+		os.Remove(k)
+	}
+
+	return code
 }
 
 // 补偿操作
@@ -272,24 +285,18 @@ func Multipart_Upload_Init(obj *Object) string {
 }
 
 // // 2.分段对象上传
-func Multipart_Upload(obj *Object, uploadid string) (bool, []global.FileResult) {
+func Multipart_Upload(obj *Object, uploadid string, fileMap map[int]string) (bool, []global.FileResult) {
 	global.Logger.Info(obj.Key, " 开始执行分段上传函数,UploadId: ", uploadid)
-	// 将大文件分成小文件
 	status := true
 	size := global.ObjectSetting.Each_Section_Size << 20
 	var fileResultList []global.FileResult
-	var fileMap = make(map[int]string)
-	fileMap = general.FileSplit(obj.FilePath, int64(size))
-	global.Logger.Debug("文件分段的map: ", fileMap)
 	num := len(fileMap)
-	// var wg sync.WaitGroup
 	for v, k := range fileMap {
-		//wg.Add(1)
 		// 讲分段文件多线程上传修改为单线程上传
-		func(v int, k string) {
-			var code string
-			var index int
-			var fileResult global.FileResult
+		var code string
+		var index int
+		var fileResult global.FileResult
+		if status {
 			if v == num {
 				index, code, fileResult = Multipart_Unifile(obj, k, uploadid, int64(size), v, true)
 			} else {
@@ -304,11 +311,8 @@ func Multipart_Upload(obj *Object, uploadid string) (bool, []global.FileResult) 
 				// model.UpdateUplaode(obj.InstanceKey, obj.Key, false)
 				status = false
 			}
-			os.Remove(k)
-			//wg.Done()
-		}(v, k)
+		}
 	}
-	//wg.Wait()
 	return status, fileResultList
 }
 
@@ -498,7 +502,7 @@ func Multipart_Abortion(obj *Object, uploadid string) string {
 	// request.Header.Set("Authorization", token)
 	// 设置AK
 	request.Header.Set("accessKey", global.ObjectSetting.OBJECT_AK)
-	request.Header.Set("Content-Type", "application/json;charset=UTF-8")
+	request.Header.Set("Content-Type", writer.FormDataContentType())
 	request.Header.Set("Connection", "close")
 	connectTimeout := 20 * time.Second
 	readWriteTimeout := 20 * time.Second
@@ -522,7 +526,7 @@ func Multipart_Abortion(obj *Object, uploadid string) string {
 		global.Logger.Error("ioutil.ReadAll got err: ", err)
 		return ""
 	}
-	global.Logger.Info("resp.Body: ", string(content))
+	global.Logger.Info("取消对象分段上传 resp.Body: ", string(content))
 	var result = make(map[string]interface{})
 	err = json.Unmarshal(content, &result)
 	if err != nil {

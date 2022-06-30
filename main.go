@@ -62,6 +62,7 @@ func run() {
 	MyCron.AddFunc(global.GeneralSetting.CronSpec, func() {
 		global.Logger.Info("开始执行定时任务")
 		work()
+		//TestCase()
 	})
 	MyCron.Start()
 	defer MyCron.Stop()
@@ -78,4 +79,15 @@ func work() {
 		global.Logger.Info("***私有云数据上传***")
 		model.GetUploadPrivateData()
 	}
+}
+
+func TestCase() {
+	data := global.ObjectData{
+		InstanceKey: 2443136,
+		FileKey:     "2c9690b881dc41ab87423c9985a7562f/FLC_4797/2022/06/01/RF/2dc0b2ab5f9a79b82ce7f71a95f4f15c/47eb94819dcaf02625ada6f61b293310/RF.3d561ac4a0cf88e375da18b6e6d03c77.dcm",
+		FilePath:    "\\\\172.16.16.117\\image\\FLC_4797\\2022\\06\\01\\RF\\2dc0b2ab5f9a79b82ce7f71a95f4f15c\\47eb94819dcaf02625ada6f61b293310\\RF.3d561ac4a0cf88e375da18b6e6d03c77.dcm",
+		Type:        global.DCM,
+		Count:       1,
+	}
+	global.ObjectDataChan <- data
 }

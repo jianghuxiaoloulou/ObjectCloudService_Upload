@@ -25,6 +25,7 @@ func GetUploadPublicData() {
 	rows, err := global.ReadDBEngine.Query(sql, global.GeneralSetting.MaxTasks)
 	if err != nil {
 		global.Logger.Fatal("Query error: ", err)
+		global.RunStatus = false
 		return
 	}
 	defer rows.Close()
@@ -33,6 +34,7 @@ func GetUploadPublicData() {
 		err = rows.Scan(&key.instance_key, &key.dcmfile, &key.jpgfile, &key.ip, &key.virpath, &key.dcmstatus, &key.jpgstatus, &key.dttm_time)
 		if err != nil {
 			global.Logger.Fatal("rows.Scan error: ", err)
+			global.RunStatus = false
 			return
 		}
 		global.Logger.Debug("KeyData: ", key)
@@ -41,6 +43,7 @@ func GetUploadPublicData() {
 			row := global.WriteDBEngine.QueryRow(sql, key.dttm_time.String)
 			if err := row.Scan(&key.objtect_time); err != nil {
 				global.Logger.Error(err)
+				global.RunStatus = false
 				return
 			}
 			if int(key.objtect_time.Int16) <= global.ObjectSetting.OBJECT_TIME {
@@ -103,6 +106,7 @@ func GetUploadPrivateData() {
 	global.Logger.Debug("ReadDB.Query: ", err)
 	if err != nil {
 		global.Logger.Fatal(err)
+		global.RunStatus = false
 		return
 	}
 	defer rows.Close()
@@ -111,6 +115,7 @@ func GetUploadPrivateData() {
 		err = rows.Scan(&key.instance_key, &key.dcmfile, &key.jpgfile, &key.ip, &key.virpath, &key.dcmstatus, &key.jpgstatus, &key.dttm_time)
 		if err != nil {
 			global.Logger.Fatal("rows.Scan error: ", err)
+			global.RunStatus = false
 			return
 		}
 		global.Logger.Debug("KeyData: ", key)
@@ -119,6 +124,7 @@ func GetUploadPrivateData() {
 			row := global.WriteDBEngine.QueryRow(sql, key.dttm_time.String)
 			if err := row.Scan(&key.objtect_time); err != nil {
 				global.Logger.Error(err)
+				global.RunStatus = false
 				return
 			}
 			if int(key.objtect_time.Int16) <= global.ObjectSetting.OBJECT_TIME {
@@ -132,7 +138,6 @@ func GetUploadPrivateData() {
 						Type:        global.JPG,
 						Count:       1,
 					}
-					// global.Logger.Info("通道数据len: ", len(global.ObjectDataChan), " ,通道数据cap: ", cap(global.ObjectDataChan))
 					global.ObjectDataChan <- data
 				} else if key.jpgfile.String == "" {
 					global.Logger.Error(key.instance_key.Int64, ": JPG文件不存在")
@@ -148,7 +153,6 @@ func GetUploadPrivateData() {
 						Type:        global.DCM,
 						Count:       1,
 					}
-					// global.Logger.Info("通道数据len: ", len(global.ObjectDataChan), " ,通道数据cap: ", cap(global.ObjectDataChan))
 					global.ObjectDataChan <- data
 				} else if key.dcmfile.String == "" {
 					global.Logger.Error(key.instance_key.Int64, ": DCM文件不存在")
