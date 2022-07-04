@@ -41,19 +41,27 @@ func NewObject(data global.ObjectData) *Object {
 // 上传对象[POST]
 func (obj *Object) UploadObject() {
 	global.Logger.Info("开始上传对象：", *obj)
-	// 判断文件大小，来区别是否开始分段上传
 	var code string
-	fileSize := general.GetFileSize(obj.FilePath)
-	if fileSize >= (int64(global.ObjectSetting.File_Fragment_Size << 20)) {
-		// 大文件上传
-		code = UploadLargeFile(obj, fileSize)
+
+	// 增加上传模式，是通过平台上传还是临时地址上传
+	if global.ObjectSetting.OBJECT_Interface_Type == global.Interfacce_Type_S3 {
+		global.Logger.Info("***通过S3接口上传数据***")
+		code = S3UploadFile(obj)
 	} else {
-		// 小文件上传
-		code = UploadFile(obj)
+		global.Logger.Info("***通过平台接口转发上传数据***")
+		// 判断文件大小，来区别是否开始分段上传
+		fileSize := general.GetFileSize(obj.FilePath)
+		if fileSize >= (int64(global.ObjectSetting.File_Fragment_Size << 20)) {
+			// 大文件上传
+			code = UploadLargeFile(obj, fileSize)
+		} else {
+			// 小文件上传
+			code = UploadFile(obj)
+		}
 	}
 	if code == "00000" {
 		//上传成功更新数据库
-		global.Logger.Info("数据上传成功", obj.Key)
+		global.Logger.Info("数据上传成功: ", obj.Key)
 		model.UpdateUplaod(obj.Key, obj.Type, obj.FileKey, true)
 	} else if code == "A2105" {
 		global.Logger.Info("请求限流，重新放入任务队列", obj.Key)
@@ -66,7 +74,7 @@ func (obj *Object) UploadObject() {
 		}
 		global.ObjectDataChan <- data
 	} else {
-		global.Logger.Info("数据上传失败", obj.Key)
+		global.Logger.Info("数据上传失败: ", obj.Key)
 		// 上传失败时先补偿操作，补偿操作失败后才更新数据库
 		// if !ReDo(obj) {
 		// 	global.Logger.Info("数据补偿失败", obj.Key)
@@ -75,6 +83,141 @@ func (obj *Object) UploadObject() {
 		// }
 		model.UpdateUplaod(obj.Key, obj.Type, obj.FileKey, false)
 	}
+}
+
+// S3接口直接上传数据
+func S3UploadFile(obj *Object) string {
+	// 1.获取临时上传地址
+	global.Logger.Debug("开始获取临时地址")
+	url := global.ObjectSetting.OBJECT_Temp_GET_Upload
+	url += "//"
+	url += global.ObjectSetting.OBJECT_ResId
+	url += "//"
+	url += obj.FileKey
+	global.Logger.Debug("操作的URL: ", url)
+	err, s3url := GetS3URL(url)
+	if err != nil {
+		global.Logger.Error("获取S3临时上传地址错误", err)
+		return err.Error()
+	}
+	// 2.通过临时上传地址上传数据
+	global.Logger.Debug("开始通过临时地址上传：", s3url)
+	return Upload_S3(s3url, obj)
+}
+
+// 获取S3临时上传地址
+func GetS3URL(url string) (error, string) {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		global.Logger.Error("http.NewRequest err", err)
+		return err, ""
+	}
+	// 设置AK
+	req.Header.Set("accessKey", global.ObjectSetting.OBJECT_AK)
+	// 设置参数
+	q := req.URL.Query()
+	q.Add("expireTime", "60000")
+	req.URL.RawQuery = q.Encode()
+	transport := http.Transport{
+		DisableKeepAlives: true,
+	}
+	client := &http.Client{
+		Transport: &transport,
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		global.Logger.Error("client.do err", err)
+		return err, ""
+	}
+	defer resp.Body.Close()
+
+	code := resp.StatusCode
+	if code != 200 {
+		global.Logger.Error("获取临时地址失败:", resp.StatusCode)
+		return errcode.Http_RespError, ""
+	}
+	content, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		global.Logger.Error("ioutil.ReadAll err: ", err)
+		return errcode.Http_RespError, ""
+	}
+	global.Logger.Info("resp.Body: ", string(content))
+	var result = make(map[string]interface{})
+	err = json.Unmarshal(content, &result)
+	if err != nil {
+		global.Logger.Error("resp.Body: ", "错误")
+		return errcode.Http_RespError, ""
+	}
+	// 解析json
+	if UrlData, ok := result["data"]; ok {
+		resultUrl := UrlData.(string)
+		global.Logger.Info("resultUrl: ", resultUrl)
+		return nil, resultUrl
+	}
+	return errcode.Http_RespError, ""
+}
+
+// S3上传数据
+func Upload_S3(url string, obj *Object) string {
+	file, err := os.Open(obj.FilePath)
+	if err != nil {
+		global.Logger.Error("Open File err :", err)
+		return errcode.File_OpenError.Msg()
+	}
+	defer file.Close()
+
+	// buff := make([]byte, 1024)
+	body := &bytes.Buffer{}
+
+	// for {
+	// 	len, err := file.Read(buff)
+	// 	if err == io.EOF || len < 0 {
+	// 		break
+	// 	}
+	// }
+	body.ReadFrom(file)
+
+	// writer := multipart.NewWriter(body)
+
+	// formFile, err := writer.CreateFormField(obj.FilePath)
+	// //formFile, err := writer.CreateFormFile("file", obj.FilePath)
+	// if err != nil {
+	// 	global.Logger.Error("CreateFormField err :", err)
+	// 	return errcode.Http_HeadError.Msg()
+	// }
+	// _, err = io.Copy(formFile, file)
+	// if err != nil {
+	// 	global.Logger.Error("File Copy err :", err)
+	// 	return errcode.File_CopyError.Msg()
+	// }
+
+	// writer.Close()
+
+	req, err := http.NewRequest(http.MethodPut, url, body)
+	if err != nil {
+		global.Logger.Error("http.NewRequest err", err)
+		return err.Error()
+	}
+	req.Header.Set("Content-Type", "application/octet-stream")
+	transport := http.Transport{
+		DisableKeepAlives: true,
+	}
+	client := &http.Client{
+		Transport: &transport,
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		global.Logger.Error("client.do err", err)
+		return ""
+	}
+	defer resp.Body.Close()
+
+	code := resp.StatusCode
+	global.Logger.Debug("S3上传数据 resp.StatusCode:", resp.StatusCode)
+	if code == 200 {
+		return "00000"
+	}
+	return ""
 }
 
 // UploadFile 上传文件

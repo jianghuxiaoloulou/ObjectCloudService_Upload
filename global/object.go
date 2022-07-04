@@ -5,6 +5,11 @@ const (
 	PrivateCloud            // 私有云
 )
 
+const (
+	Interface_Type_Platform int = iota // 通过平台转发的上传模式
+	Interfacce_Type_S3                 // 通过S3上传模式
+)
+
 // 文件类型
 type FileType int
 

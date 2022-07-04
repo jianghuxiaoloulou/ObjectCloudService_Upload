@@ -21,7 +21,12 @@ func GetUploadPublicData() {
 	left join study_location sl on sl.n_station_code = ins.location_code
 	where ((fr.dcm_file_exist = 1 and fr.dcm_file_exist_obs_cloud = 0) or (fr.img_file_exist = 1 and fr.img_file_exist_obs_cloud = 0))
 	order by fr.dcm_update_time_retrieve desc limit ?;`
-	global.Logger.Debug("开始执行数据库数据查询", global.ReadDBEngine.Stats())
+	// global.Logger.Debug("开始执行数据库数据查询", global.ReadDBEngine.Stats())
+
+	if global.ReadDBEngine.Ping() != nil {
+		global.Logger.Error("ReadDBEngine.ping() err: ", global.ReadDBEngine.Ping())
+		return
+	}
 	rows, err := global.ReadDBEngine.Query(sql, global.GeneralSetting.MaxTasks)
 	if err != nil {
 		global.Logger.Fatal("Query error: ", err)
@@ -101,9 +106,13 @@ func GetUploadPrivateData() {
 	where ((fr.dcm_file_exist = 1 and fr.dcm_file_exist_obs_local = 0)  or (fr.img_file_exist = 1 and fr.img_file_exist_obs_local = 0))
 	order by fr.dcm_update_time_retrieve desc limit ?;`
 	// global.Logger.Debug(sql)
-	global.Logger.Debug("开始执行数据库数据查询", global.ReadDBEngine.Stats())
+	// global.Logger.Debug("开始执行数据库数据查询", global.ReadDBEngine.Stats())
+	if global.ReadDBEngine.Ping() != nil {
+		global.Logger.Error("ReadDBEngine.ping() err: ", global.ReadDBEngine.Ping())
+		return
+	}
 	rows, err := global.ReadDBEngine.Query(sql, global.GeneralSetting.MaxTasks)
-	global.Logger.Debug("ReadDB.Query: ", err)
+	// global.Logger.Debug("ReadDB.Query: ", err)
 	if err != nil {
 		global.Logger.Fatal(err)
 		global.RunStatus = false
@@ -167,18 +176,30 @@ func GetUploadPrivateData() {
 // 更新不存在的DCM字段
 func UpdateLocalStatus(key int64) {
 	sql := `update file_remote fr set fr.dcm_file_exist = 0 where fr.instance_key = ?;`
+	if global.WriteDBEngine.Ping() != nil {
+		global.Logger.Error("WriteDBEngine.ping() err: ", global.ReadDBEngine.Ping())
+		return
+	}
 	global.WriteDBEngine.Exec(sql, key)
 }
 
 // 更新不存在的JPG字段
 func UpdateLocalJPGStatus(key int64) {
 	sql := `update file_remote fr set fr.img_file_exist = 0 where fr.instance_key = ?;`
+	if global.WriteDBEngine.Ping() != nil {
+		global.Logger.Error("WriteDBEngine.ping() err: ", global.ReadDBEngine.Ping())
+		return
+	}
 	global.WriteDBEngine.Exec(sql, key)
 }
 
 // 上传数据后更新数据库
 func UpdateUplaod(key int64, filetype global.FileType, remotekey string, status bool) {
 	// 获取更新时时间
+	if global.WriteDBEngine.Ping() != nil {
+		global.Logger.Error("WriteDBEngine.ping() err: ", global.ReadDBEngine.Ping())
+		return
+	}
 	local, _ := time.LoadLocation("Local")
 	timeFormat := "2006-01-02 15:04:05"
 	curtime := time.Now().In(local).Format(timeFormat)

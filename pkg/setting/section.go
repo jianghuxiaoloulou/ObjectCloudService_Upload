@@ -44,6 +44,8 @@ type ObjectSettingS struct {
 	OBJECT_Multipart_Upload_URL     string
 	OBJECT_Multipart_Completion_URL string
 	OBJECT_Multipart_Abortion_URL   string
+	OBJECT_Interface_Type           int
+	OBJECT_Temp_GET_Upload          string
 }
 
 func (s *Setting) ReadSection(k string, v interface{}) error {

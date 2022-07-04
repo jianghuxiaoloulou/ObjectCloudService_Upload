@@ -59,3 +59,9 @@ Object:
   OBJECT_Multipart_Completion_URL: http://172.16.0.16:31460/v1/object/multipart/completion
   # 分段上传第 3 步: 取消对象分段上传
   OBJECT_Multipart_Abortion_URL: http://172.16.0.16:31460/v1/object/multipart/abortion
+
+  # 增加临时上传下载地址
+  # 接口调用类型：（1.通过S3地址直接上传. 0.通过平台接转发上传）
+  OBJECT_Interface_Type: 1
+  # 临时上传地址
+  OBJECT_Temp_GET_Upload: http://172.16.0.16:31460/v1/object/input

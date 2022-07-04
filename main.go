@@ -71,13 +71,22 @@ func run() {
 
 func work() {
 	global.Logger.Debug("runtime.NumGoroutine :", runtime.NumGoroutine())
-	switch global.ObjectSetting.OBJECT_Store_Type {
-	case global.PublicCloud:
-		global.Logger.Info("***公有云数据上传***")
-		model.GetUploadPublicData()
-	case global.PrivateCloud:
-		global.Logger.Info("***私有云数据上传***")
-		model.GetUploadPrivateData()
+	// 增加数据库的连接判断
+	if global.ReadDBEngine.Ping() == nil && global.WriteDBEngine.Ping() == nil {
+		switch global.ObjectSetting.OBJECT_Store_Type {
+		case global.PublicCloud:
+			global.Logger.Info("***公有云数据上传***")
+			model.GetUploadPublicData()
+		case global.PrivateCloud:
+			global.Logger.Info("***私有云数据上传***")
+			model.GetUploadPrivateData()
+		}
+	} else {
+		global.Logger.Debug("数据库无效连接，重连数据库")
+		global.ReadDBEngine.Close()
+		global.WriteDBEngine.Close()
+		setupReadDBEngine()
+		setupWriteDBEngine()
 	}
 }
 
