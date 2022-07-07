@@ -74,14 +74,10 @@ func (obj *Object) UploadObject() {
 		}
 		global.ObjectDataChan <- data
 	} else {
-		global.Logger.Info("数据上传失败: ", obj.Key)
-		// 上传失败时先补偿操作，补偿操作失败后才更新数据库
-		// if !ReDo(obj) {
-		// 	global.Logger.Info("数据补偿失败", obj.Key)
-		// 	// 上传失败更新数据库
-		// 	model.UpdateUplaod(obj.Key, obj.Type, obj.FileKey, false)
-		// }
-		model.UpdateUplaod(obj.Key, obj.Type, obj.FileKey, false)
+		if !ReDo(obj) {
+			global.Logger.Info("数据上传失败: ", obj.Key)
+			model.UpdateUplaod(obj.Key, obj.Type, obj.FileKey, false)
+		}
 	}
 }
 
@@ -114,12 +110,17 @@ func GetS3URL(url string) (error, string) {
 	}
 	// 设置AK
 	req.Header.Set("accessKey", global.ObjectSetting.OBJECT_AK)
+	req.Header.Set("Connection", "close")
+	connectTimeout := 60 * time.Second
+	readWriteTimeout := 60 * time.Second
+
 	// 设置参数
 	q := req.URL.Query()
 	q.Add("expireTime", "60000")
 	req.URL.RawQuery = q.Encode()
 	transport := http.Transport{
 		DisableKeepAlives: true,
+		Dial:              TimeoutDialer(connectTimeout, readWriteTimeout),
 	}
 	client := &http.Client{
 		Transport: &transport,
@@ -159,46 +160,44 @@ func GetS3URL(url string) (error, string) {
 
 // S3上传数据
 func Upload_S3(url string, obj *Object) string {
+	fileSize := general.GetFileSize(obj.FilePath)
+
 	file, err := os.Open(obj.FilePath)
 	if err != nil {
 		global.Logger.Error("Open File err :", err)
 		return errcode.File_OpenError.Msg()
 	}
 	defer file.Close()
-
-	// buff := make([]byte, 1024)
 	body := &bytes.Buffer{}
+	if fileSize >= (int64(global.ObjectSetting.File_Fragment_Size << 20)) {
+		// 大文件分块读取
+		buff := make([]byte, 1024)
+		for {
+			n, err := file.Read(buff)
+			// 控制条件，根据实际调整
+			if err != nil && err != io.EOF {
+				global.Logger.Error(err)
+				return ""
+			}
+			if n == 0 {
+				break
+			}
+			body.Write(buff[:n])
+		}
+	} else {
+		// 小文件直接读取
+		body.ReadFrom(file)
+	}
 
-	// for {
-	// 	len, err := file.Read(buff)
-	// 	if err == io.EOF || len < 0 {
-	// 		break
-	// 	}
-	// }
-	body.ReadFrom(file)
-
-	// writer := multipart.NewWriter(body)
-
-	// formFile, err := writer.CreateFormField(obj.FilePath)
-	// //formFile, err := writer.CreateFormFile("file", obj.FilePath)
-	// if err != nil {
-	// 	global.Logger.Error("CreateFormField err :", err)
-	// 	return errcode.Http_HeadError.Msg()
-	// }
-	// _, err = io.Copy(formFile, file)
-	// if err != nil {
-	// 	global.Logger.Error("File Copy err :", err)
-	// 	return errcode.File_CopyError.Msg()
-	// }
-
-	// writer.Close()
-
+	global.Logger.Info("http.NewRequest 开始请求上传文件", obj.Key)
 	req, err := http.NewRequest(http.MethodPut, url, body)
 	if err != nil {
 		global.Logger.Error("http.NewRequest err", err)
 		return err.Error()
 	}
 	req.Header.Set("Content-Type", "application/octet-stream")
+	req.Header.Set("Connection", "close")
+
 	transport := http.Transport{
 		DisableKeepAlives: true,
 	}

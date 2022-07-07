@@ -6,7 +6,6 @@ import (
 	"WowjoyProject/ObjectCloudService_Upload/pkg/object"
 	"WowjoyProject/ObjectCloudService_Upload/pkg/workpattern"
 	"runtime"
-	"time"
 
 	"github.com/robfig/cron"
 )
@@ -30,9 +29,9 @@ func main() {
 			case data := <-global.ObjectDataChan:
 				sc := &Dosomething{key: data}
 				wokerPool.JobQueue <- sc
-			case <-time.After(60 * time.Second):
-				global.Logger.Info("timeout")
-				<-global.ObjectDataChan
+				// case <-time.After(60 * time.Second):
+				// 	global.Logger.Info("timeout")
+				// 	<-global.ObjectDataChan
 			}
 		}
 	}()
@@ -62,7 +61,7 @@ func run() {
 	MyCron.AddFunc(global.GeneralSetting.CronSpec, func() {
 		global.Logger.Info("开始执行定时任务")
 		work()
-		//TestCase()
+		// TestCase()
 	})
 	MyCron.Start()
 	defer MyCron.Stop()
@@ -92,9 +91,9 @@ func work() {
 
 func TestCase() {
 	data := global.ObjectData{
-		InstanceKey: 2443136,
-		FileKey:     "2c9690b881dc41ab87423c9985a7562f/FLC_4797/2022/06/01/RF/2dc0b2ab5f9a79b82ce7f71a95f4f15c/47eb94819dcaf02625ada6f61b293310/RF.3d561ac4a0cf88e375da18b6e6d03c77.dcm",
-		FilePath:    "\\\\172.16.16.117\\image\\FLC_4797\\2022\\06\\01\\RF\\2dc0b2ab5f9a79b82ce7f71a95f4f15c\\47eb94819dcaf02625ada6f61b293310\\RF.3d561ac4a0cf88e375da18b6e6d03c77.dcm",
+		InstanceKey: 1,
+		FileKey:     "Windows 7 x86-s001.vmdk",
+		FilePath:    "D:\\work\\ZSH\\Windows 7 x86-s001.vmdk",
 		Type:        global.DCM,
 		Count:       1,
 	}
