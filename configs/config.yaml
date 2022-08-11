@@ -65,3 +65,5 @@ Object:
   OBJECT_Interface_Type: 1
   # 临时上传地址
   OBJECT_Temp_GET_Upload: http://172.16.0.16:31460/v1/object/input
+  # 通过instanceKey 确定起始上传位置
+  OBJECT_START_KEY: 0

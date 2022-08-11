@@ -10,6 +10,9 @@ const (
 	Interfacce_Type_S3                 // 通过S3上传模式
 )
 
+// 查询条件限制范围值
+var TargetValue int64
+
 // 文件类型
 type FileType int
 

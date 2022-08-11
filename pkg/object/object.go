@@ -6,6 +6,7 @@ import (
 	"WowjoyProject/ObjectCloudService_Upload/pkg/errcode"
 	"WowjoyProject/ObjectCloudService_Upload/pkg/general"
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -74,10 +75,8 @@ func (obj *Object) UploadObject() {
 		}
 		global.ObjectDataChan <- data
 	} else {
-		if !ReDo(obj) {
-			global.Logger.Info("数据上传失败: ", obj.Key)
-			model.UpdateUplaod(obj.Key, obj.Type, obj.FileKey, false)
-		}
+		global.Logger.Error("数据上传失败: ", obj.Key)
+		model.UpdateUplaod(obj.Key, obj.Type, obj.FileKey, false)
 	}
 }
 
@@ -111,8 +110,8 @@ func GetS3URL(url string) (error, string) {
 	// 设置AK
 	req.Header.Set("accessKey", global.ObjectSetting.OBJECT_AK)
 	req.Header.Set("Connection", "close")
-	connectTimeout := 60 * time.Second
-	readWriteTimeout := 60 * time.Second
+	connectTimeout := 20 * time.Second
+	readWriteTimeout := 20 * time.Second
 
 	// 设置参数
 	q := req.URL.Query()
@@ -121,6 +120,7 @@ func GetS3URL(url string) (error, string) {
 	transport := http.Transport{
 		DisableKeepAlives: true,
 		Dial:              TimeoutDialer(connectTimeout, readWriteTimeout),
+		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
 	}
 	client := &http.Client{
 		Transport: &transport,
@@ -200,6 +200,7 @@ func Upload_S3(url string, obj *Object) string {
 
 	transport := http.Transport{
 		DisableKeepAlives: true,
+		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
 	}
 	client := &http.Client{
 		Transport: &transport,
@@ -259,8 +260,8 @@ func UploadFile(obj *Object) string {
 	request.Header.Set("accessKey", global.ObjectSetting.OBJECT_AK)
 	request.Header.Set("Content-Type", writer.FormDataContentType())
 	request.Header.Set("Connection", "close")
-	connectTimeout := 60 * time.Second
-	readWriteTimeout := 60 * time.Second
+	connectTimeout := 20 * time.Second
+	readWriteTimeout := 20 * time.Second
 	transport := http.Transport{
 		DisableKeepAlives: true,
 		// TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},

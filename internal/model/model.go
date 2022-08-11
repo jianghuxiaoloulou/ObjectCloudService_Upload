@@ -9,9 +9,9 @@ import (
 )
 
 type KeyData struct {
-	instance_key                             sql.NullInt64
-	jpgfile, dcmfile, ip, virpath, dttm_time sql.NullString
-	jpgstatus, dcmstatus, objtect_time       sql.NullInt16
+	instance_key                                                   sql.NullInt64
+	jpgfile, dcmfile, ip, virpath, dttm_time                       sql.NullString
+	jpgstatus, dcmstatus, objtect_time, Nfsdcmstatus, Nfsjpgstatus sql.NullInt16
 }
 
 func NewDBEngine(databaseSetting *setting.DatabaseSettingS) (*sql.DB, error) {

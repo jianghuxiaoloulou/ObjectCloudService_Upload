@@ -29,9 +29,6 @@ func main() {
 			case data := <-global.ObjectDataChan:
 				sc := &Dosomething{key: data}
 				wokerPool.JobQueue <- sc
-				// case <-time.After(60 * time.Second):
-				// 	global.Logger.Info("timeout")
-				// 	<-global.ObjectDataChan
 			}
 		}
 	}()
@@ -53,7 +50,8 @@ func (d *Dosomething) Do() {
 func run() {
 	// 方式一：
 	// for {
-	// 	time.Sleep(time.Second * 10)
+	// 	// time.Sleep(time.Second * 10)
+	// 	global.Logger.Info("开始循环执行任务..........")
 	// 	work()
 	// }
 	// 方式二：获取任务(定时任务)
@@ -61,7 +59,6 @@ func run() {
 	MyCron.AddFunc(global.GeneralSetting.CronSpec, func() {
 		global.Logger.Info("开始执行定时任务")
 		work()
-		// TestCase()
 	})
 	MyCron.Start()
 	defer MyCron.Stop()
